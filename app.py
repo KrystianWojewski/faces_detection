@@ -4,10 +4,19 @@ import numpy as np
 from sklearn.model_selection import train_test_split
 import tensorflow as tf
 import cv2
+import matplotlib.pyplot as plt
 
 imagePaths = list(paths.list_images("Dataset\Faces"))
 images = []
-classes = []
+labels = []
+labels_text = []
+label_dict = {}
+
+epochs = 50
+activation_func = 'relu'
+loss = "categorical_crossentropy"
+
+label_num=0
 
 for imagePath in imagePaths:
 
@@ -16,30 +25,65 @@ for imagePath in imagePaths:
     image = cv2.imread(imagePath)
     
     images.append(image)
-    classes.append(img_class)
+    labels_text.append(img_class)
 
-np.array(images, dtype="float") / 255.0
+no_classes = len(np.unique(labels_text))
 
-no_classes = len(np.unique(classes))
+data = np.array(images, dtype="float") / 255.0
 
-Xtrain, Xtest, Ytrain, Ytest = train_test_split(images, classes, test_size=0.2, stratify=classes)
+for label in labels_text:
+    if label not in label_dict:
+        label_dict[label] = label_num
+        label_num+=1
+        
+    labels.append(label_dict[label])
+    
+labels = np.array(labels)
+
+labels = tf.keras.utils.to_categorical(labels, num_classes=no_classes)
+
+Xtrain, Xtest, Ytrain, Ytest = train_test_split(data, labels, test_size=0.2, stratify=labels)
 
 model = tf.keras.models.Sequential()
 
-#TODO
-model.add(tf.keras.layers.Conv2D())
+model.add(tf.keras.layers.Conv2D(8, kernel_size=(5,5), strides=(1,1), padding='same', activation=activation_func, input_shape=(160,160,3)))
+model.add(tf.keras.layers.AveragePooling2D(pool_size=(2,2), strides=(2, 2)))
 
-print(no_classes)
+model.add(tf.keras.layers.Conv2D(16, kernel_size=(3,3), strides=(1,1), padding='same', activation=activation_func))
+model.add(tf.keras.layers.AveragePooling2D(pool_size=(2,2), strides=(2, 2)))
 
-# print("Xtrain shape:", np.shape(Xtrain))
-# print("Xtest shape:", np.shape(Xtest))
-# print("Ytrain shape:", Ytrain.shape)
-# print("Ytest shape:", Ytest.shape)
+model.add(tf.keras.layers.Conv2D(32, kernel_size=(3,3), strides=(1,1), padding='same', activation=activation_func))
+model.add(tf.keras.layers.AveragePooling2D(pool_size=(2,2), strides=(2, 2)))
 
-# img = cv2.imread("Dataset\Faces\Alexandra Daddario\Alexandra Daddario_1.jpg")
+model.add(tf.keras.layers.Conv2D(64, kernel_size=(3,3), strides=(1,1), padding='same', activation=activation_func))
+model.add(tf.keras.layers.AveragePooling2D(pool_size=(2,2), strides=(2, 2)))
 
-# cv2.imshow("image", img)
+model.add(tf.keras.layers.Conv2D(128, kernel_size=(3,3), strides=(1,1), padding='same', activation=activation_func))
 
-# cv2.waitKey(0)
+model.add(tf.keras.layers.Flatten())
 
-# cv2.destroyAllWindows()
+model.add(tf.keras.layers.Dense(2304, activation=activation_func))
+model.add(tf.keras.layers.Dense(1152, activation=activation_func))
+model.add(tf.keras.layers.Dense(576, activation=activation_func))
+model.add(tf.keras.layers.Dense(144, activation=activation_func))
+
+model.add(tf.keras.layers.Dense(no_classes, activation='softmax'))
+
+
+model.compile(loss=loss, metrics=['accuracy'], optimizer='adam')
+
+his = model.fit(Xtrain, Ytrain, batch_size=128, epochs=epochs, validation_data=(Xtest, Ytest))
+
+model.save("model.h5")
+
+plt.style.use("ggplot")
+plt.figure()
+plt.plot(range(epochs), his.history["loss"], label="train_loss")
+plt.plot(range(epochs), his.history["val_loss"], label="val_loss")
+plt.plot(range(epochs), his.history["accuracy"], label="train_acc")
+plt.plot(range(epochs), his.history["val_accuracy"], label="val_acc")
+plt.title("Training Loss and Accuracy")
+plt.xlabel("Epoch #")
+plt.ylabel("Loss/Accuracy")
+plt.legend(loc="lower left")
+plt.savefig("model.png")
