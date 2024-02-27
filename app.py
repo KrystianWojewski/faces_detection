@@ -5,6 +5,10 @@ from sklearn.model_selection import train_test_split
 import tensorflow as tf
 import cv2
 import matplotlib.pyplot as plt
+import nn
+
+# Disable TF warning messages
+os.environ['TF_CPP_MIN_LOG_LEVEL'] = '3'
 
 imagePaths = list(paths.list_images("Dataset\Faces"))
 images = []
@@ -13,8 +17,12 @@ labels_text = []
 label_dict = {}
 
 epochs = 50
-activation_func = 'relu'
 loss = "categorical_crossentropy"
+
+size = 160
+
+doResize = False
+re_size = 80
 
 label_num=0
 
@@ -24,10 +32,14 @@ for imagePath in imagePaths:
     
     image = cv2.imread(imagePath)
     
+    if doResize:
+        size = re_size
+        image = cv2.resize(image, (size , size))
+    
     images.append(image)
     labels_text.append(img_class)
 
-no_classes = len(np.unique(labels_text))
+num_classes = len(np.unique(labels_text))
 
 data = np.array(images, dtype="float") / 255.0
 
@@ -40,35 +52,11 @@ for label in labels_text:
     
 labels = np.array(labels)
 
-labels = tf.keras.utils.to_categorical(labels, num_classes=no_classes)
+labels = tf.keras.utils.to_categorical(labels, num_classes=num_classes)
 
 Xtrain, Xtest, Ytrain, Ytest = train_test_split(data, labels, test_size=0.2, stratify=labels)
 
-model = tf.keras.models.Sequential()
-
-model.add(tf.keras.layers.Conv2D(8, kernel_size=(5,5), strides=(1,1), padding='same', activation=activation_func, input_shape=(160,160,3)))
-model.add(tf.keras.layers.AveragePooling2D(pool_size=(2,2), strides=(2, 2)))
-
-model.add(tf.keras.layers.Conv2D(16, kernel_size=(3,3), strides=(1,1), padding='same', activation=activation_func))
-model.add(tf.keras.layers.AveragePooling2D(pool_size=(2,2), strides=(2, 2)))
-
-model.add(tf.keras.layers.Conv2D(32, kernel_size=(3,3), strides=(1,1), padding='same', activation=activation_func))
-model.add(tf.keras.layers.AveragePooling2D(pool_size=(2,2), strides=(2, 2)))
-
-model.add(tf.keras.layers.Conv2D(64, kernel_size=(3,3), strides=(1,1), padding='same', activation=activation_func))
-model.add(tf.keras.layers.AveragePooling2D(pool_size=(2,2), strides=(2, 2)))
-
-model.add(tf.keras.layers.Conv2D(128, kernel_size=(3,3), strides=(1,1), padding='same', activation=activation_func))
-
-model.add(tf.keras.layers.Flatten())
-
-model.add(tf.keras.layers.Dense(2304, activation=activation_func))
-model.add(tf.keras.layers.Dense(1152, activation=activation_func))
-model.add(tf.keras.layers.Dense(576, activation=activation_func))
-model.add(tf.keras.layers.Dense(144, activation=activation_func))
-
-model.add(tf.keras.layers.Dense(no_classes, activation='softmax'))
-
+model = nn.MyModel.build(size, num_classes)
 
 model.compile(loss=loss, metrics=['accuracy'], optimizer='adam')
 
@@ -86,4 +74,4 @@ plt.title("Training Loss and Accuracy")
 plt.xlabel("Epoch #")
 plt.ylabel("Loss/Accuracy")
 plt.legend(loc="lower left")
-plt.savefig("model.png")
+plt.savefig("model7.png")
